@@ -1,5 +1,7 @@
-// Replace import.meta.env with your live Render backend URL
-const API_BASE_URL = "https://stock-tracker-yiny.onrender.com";let current = null;
+// ── Config ────────────────────────────────────────────
+const API_BASE_URL = "https://stock-tracker-yiny.onrender.com";
+
+let current = null;
 let chart   = null;
 
 // ── Helpers ───────────────────────────────────────────
@@ -7,39 +9,55 @@ async function api(path, method = "GET", body = null) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body) opts.body = JSON.stringify(body);
   try {
-    const res = await fetch(API + path, opts);
-    if (!res.ok) { const e = await res.json().catch(() => ({})); alert(e.detail || "Error"); return null; }
-    return res.json();
-  } catch { alert("Cannot connect to backend!"); return null; }
+    // FIX: Changed 'API' to 'API_BASE_URL'
+    const res = await fetch(API_BASE_URL + path, opts);
+    if (!res.ok) { 
+      const e = await res.json().catch(() => ({})); 
+      alert(e.detail || "Error"); 
+      return null; 
+    }
+    return await res.json();
+  } catch (err) { 
+    console.error("API Error:", err);
+    alert("Cannot connect to backend!"); 
+    return null; 
+  }
 }
 
 function load(on, msg = "Loading...") {
-  document.getElementById("loader").style.display = on ? "flex" : "none";
-  document.getElementById("ltxt").textContent = msg;
+  const loader = document.getElementById("loader");
+  const ltxt = document.getElementById("ltxt");
+  if (loader) loader.style.display = on ? "flex" : "none";
+  if (ltxt) ltxt.textContent = msg;
 }
 
 // ── Add ───────────────────────────────────────────────
 async function addStock() {
-  const sym = document.getElementById("sym").value.trim().toUpperCase();
+  const symInput = document.getElementById("sym");
+  const sym = symInput ? symInput.value.trim().toUpperCase() : "";
   if (!sym) return alert("Enter a symbol");
   load(true, "Adding " + sym + "...");
   const res = await api("/add", "POST", { symbol: sym });
   load(false);
   if (!res) return;
-  document.getElementById("sym").value = "";
+  if (symInput) symInput.value = "";
   await loadSidebar();
   showStock(res);
 }
 
-document.getElementById("sym").addEventListener("keydown", e => {
-  if (e.key === "Enter") addStock();
-});
+const symEl = document.getElementById("sym");
+if (symEl) {
+  symEl.addEventListener("keydown", e => {
+    if (e.key === "Enter") addStock();
+  });
+}
 
 // ── Sidebar ───────────────────────────────────────────
 async function loadSidebar() {
   const stocks = await api("/stocks");
   if (!stocks) return;
   const el = document.getElementById("sb-list");
+  if (!el) return;
   el.innerHTML = stocks.length === 0
     ? `<div style="padding:14px;font-size:0.78rem;color:#aaa;text-align:center">None yet</div>`
     : stocks.map(s => `
@@ -61,12 +79,18 @@ async function select(symbol) {
 // ── Show stock ────────────────────────────────────────
 function showStock(data) {
   current = data.symbol;
-  document.getElementById("empty").style.display  = "none";
-  document.getElementById("panel").style.display  = "block";
-  document.getElementById("p-sym").textContent    = data.symbol;
-  document.getElementById("p-name").textContent   = data.name;
+  const empty = document.getElementById("empty");
+  const panel = document.getElementById("panel");
+  
+  if (empty) empty.style.display = "none";
+  if (panel) panel.style.display = "block";
+  
+  document.getElementById("p-sym").textContent  = data.symbol;
+  document.getElementById("p-name").textContent = data.name;
 
-  const prices = data.prices;
+  const prices = data.prices || [];
+  if (prices.length === 0) return;
+
   const latest = prices[prices.length - 1];
   const prev   = prices[prices.length - 2] || latest;
   const chg    = +(latest.close - prev.close).toFixed(2);
@@ -85,10 +109,12 @@ function showStock(data) {
 
 // ── Chart ─────────────────────────────────────────────
 function drawChart(prices) {
+  const canvas = document.getElementById("chart");
+  if (!canvas) return;
   const up    = prices[prices.length-1].close >= prices[0].close;
   const color = up ? "#16a34a" : "#dc2626";
   if (chart) chart.destroy();
-  chart = new Chart(document.getElementById("chart"), {
+  chart = new Chart(canvas, {
     type: "line",
     data: {
       labels: prices.map(p => p.date.slice(5)),
@@ -117,10 +143,9 @@ function drawChart(prices) {
 
 // ── Table ─────────────────────────────────────────────
 function drawTable(prices) {
-  document.getElementById("tbody").innerHTML = [...prices].reverse().map((p, i, arr) => {
-    const prev = arr[i + 1];
-    const chg  = prev ? +(p.close - prev.close).toFixed(2) : null;
-    const up   = chg !== null ? chg >= 0 : true;
+  const tbody = document.getElementById("tbody");
+  if (!tbody) return;
+  tbody.innerHTML = [...prices].reverse().map((p, i, arr) => {
     return `<tr>
       <td><b>${p.date}</b></td>
       <td>${p.open}</td>
@@ -148,8 +173,10 @@ async function remove() {
   if (!current || !confirm("Remove " + current + "?")) return;
   await api("/stocks/" + current, "DELETE");
   current = null;
-  document.getElementById("panel").style.display = "none";
-  document.getElementById("empty").style.display = "flex";
+  const panel = document.getElementById("panel");
+  const empty = document.getElementById("empty");
+  if (panel) panel.style.display = "none";
+  if (empty) empty.style.display = "flex";
   loadSidebar();
 }
 
