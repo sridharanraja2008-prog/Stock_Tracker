@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || "https://stock-tracker-yiny.onrender.com";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://stock-tracker-yiny.onrender.com";
 let current = null;
 let chart   = null;
 
