@@ -11,14 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 # Allow requests from your Vercel frontend URL
-origins = [
-    "https://stock-tracker-eta-six.vercel.app",
-    "http://localhost:3000",  # for local testing
-]
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
