@@ -1,5 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://stock-tracker-yiny.onrender.com";
-let current = null;
+// Replace import.meta.env with your live Render backend URL
+const API_BASE_URL = "https://stock-tracker-yiny.onrender.com";let current = null;
 let chart   = null;
 
 // ── Helpers ───────────────────────────────────────────
