@@ -1,7 +1,7 @@
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
-from dotenv import load_dotenv
 
-MONGO_URI = os.getenv("MONGO_URI", os.getenv("MONGO_DETAILS"))
-
+MONGO_URI = os.getenv("MONGO_URI") or os.getenv("MONGO_DETAILS")
 client = AsyncIOMotorClient(MONGO_URI)
+
+db = client.stock_db  
