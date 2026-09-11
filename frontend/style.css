@@ -55,7 +55,7 @@ body { font-family: 'Segoe UI', sans-serif; background: #f7f8fc; color: #222; he
 .range.active { background: #2563eb; color: #fff; border-color: #2563eb; }
 
 /* CHART */
-.chart-box { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+.chart-box { background: #fcfafa; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
 
 /* TABLE */
 .price-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; border: 1px solid #e5e7eb; font-size: 0.83rem; }
