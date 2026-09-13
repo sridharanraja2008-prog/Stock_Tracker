@@ -1,37 +1,37 @@
 // ── Config ────────────────────────────────────────────
 const API_BASE_URL = "https://stock-tracker-yiny.onrender.com";
 
-let current = null;
-let chart   = null;
+let current       = null;
+let chart         = null;
+let autoRefreshId = null;   // ← tracks the auto-refresh timer
 
 // ── Helpers ───────────────────────────────────────────
 async function api(path, method = "GET", body = null) {
   const opts = { method, headers: { "Content-Type": "application/json" } };
   if (body) opts.body = JSON.stringify(body);
   try {
-    // FIX: Changed 'API' to 'API_BASE_URL'
     const res = await fetch(API_BASE_URL + path, opts);
-    if (!res.ok) { 
-      const e = await res.json().catch(() => ({})); 
-      alert(e.detail || "Error"); 
-      return null; 
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      alert(e.detail || "Error");
+      return null;
     }
     return await res.json();
-  } catch (err) { 
+  } catch (err) {
     console.error("API Error:", err);
-    alert("Cannot connect to backend!"); 
-    return null; 
+    alert("Cannot connect to backend!");
+    return null;
   }
 }
 
 function load(on, msg = "Loading...") {
   const loader = document.getElementById("loader");
-  const ltxt = document.getElementById("ltxt");
+  const ltxt   = document.getElementById("ltxt");
   if (loader) loader.style.display = on ? "flex" : "none";
-  if (ltxt) ltxt.textContent = msg;
+  if (ltxt)   ltxt.textContent = msg;
 }
 
-// ── Add ───────────────────────────────────────────────
+// ── Add Stock ─────────────────────────────────────────
 async function addStock() {
   const symInput = document.getElementById("sym");
   const sym = symInput ? symInput.value.trim().toUpperCase() : "";
@@ -61,7 +61,8 @@ async function loadSidebar() {
   el.innerHTML = stocks.length === 0
     ? `<div style="padding:14px;font-size:0.78rem;color:#aaa;text-align:center">None yet</div>`
     : stocks.map(s => `
-        <div class="sb-item ${s.symbol === current ? 'active' : ''}" onclick="select('${s.symbol}')">
+        <div class="sb-item ${s.symbol === current ? 'active' : ''}"
+             onclick="select('${s.symbol}')">
           <div class="sb-sym">${s.symbol}</div>
           <div class="sb-name">${s.name}</div>
         </div>`).join("");
@@ -74,17 +75,17 @@ async function select(symbol) {
   load(false);
   if (!data) return;
   showStock(data);
+  startAutoRefresh(symbol);   // ← start auto refresh when user picks a stock
 }
 
-// ── Show stock ────────────────────────────────────────
+// ── Show Stock ────────────────────────────────────────
 function showStock(data) {
   current = data.symbol;
   const empty = document.getElementById("empty");
   const panel = document.getElementById("panel");
-  
   if (empty) empty.style.display = "none";
   if (panel) panel.style.display = "block";
-  
+
   document.getElementById("p-sym").textContent  = data.symbol;
   document.getElementById("p-name").textContent = data.name;
 
@@ -102,9 +103,24 @@ function showStock(data) {
   chgEl.textContent = `${up ? "▲" : "▼"} ${Math.abs(chg)} (${Math.abs(chgPct)}%)`;
   chgEl.className   = "c-chg " + (up ? "up" : "down");
 
+  // Show last updated time
+  showLastUpdated();
+
   drawChart(prices);
   drawTable(prices);
   loadSidebar();
+}
+
+// ── Last Updated ──────────────────────────────────────
+function showLastUpdated() {
+  const existing = document.getElementById("last-updated");
+  if (existing) existing.remove();
+  const el = document.createElement("div");
+  el.id = "last-updated";
+  el.style.cssText = "font-size:0.72rem;color:#aaa;text-align:right;margin-bottom:8px;";
+  el.textContent = "Last updated: " + new Date().toLocaleTimeString();
+  const panel = document.getElementById("panel");
+  if (panel) panel.prepend(el);
 }
 
 // ── Chart ─────────────────────────────────────────────
@@ -145,16 +161,15 @@ function drawChart(prices) {
 function drawTable(prices) {
   const tbody = document.getElementById("tbody");
   if (!tbody) return;
-  tbody.innerHTML = [...prices].reverse().map((p, i, arr) => {
-    return `<tr>
+  tbody.innerHTML = [...prices].reverse().map(p => `
+    <tr>
       <td><b>${p.date}</b></td>
       <td>${p.open}</td>
       <td class="up">${p.high}</td>
       <td class="down">${p.low}</td>
       <td><b>${p.close}</b></td>
-      <td style="color:#aaa">${(p.volume/1e6).toFixed(1)}M</td>
-    </tr>`;
-  }).join("");
+      <td style="color:#aaa">${(p.volume / 1e6).toFixed(1)}M</td>
+    </tr>`).join("");
 }
 
 // ── Refresh ───────────────────────────────────────────
@@ -164,8 +179,18 @@ async function refresh() {
   const data = await api("/refresh/" + current);
   load(false);
   if (!data) return;
-  const stock = await api("/stocks/" + current);
-  if (stock) showStock(stock);
+  showStock(data);
+}
+
+// ── Auto Refresh every 5 minutes ─────────────────────
+function startAutoRefresh(symbol) {
+  if (autoRefreshId) clearInterval(autoRefreshId);
+  autoRefreshId = setInterval(async () => {
+    if (!current) return;
+    console.log("Auto refreshing " + current + "...");
+    const data = await api("/stocks/" + current);
+    if (data) showStock(data);
+  }, 5 * 60 * 1000); // every 5 minutes
 }
 
 // ── Remove ────────────────────────────────────────────
@@ -173,6 +198,7 @@ async function remove() {
   if (!current || !confirm("Remove " + current + "?")) return;
   await api("/stocks/" + current, "DELETE");
   current = null;
+  if (autoRefreshId) clearInterval(autoRefreshId); // stop auto refresh
   const panel = document.getElementById("panel");
   const empty = document.getElementById("empty");
   if (panel) panel.style.display = "none";
